@@ -1,0 +1,12 @@
+{
+  "train": {
+    "max_epochs": 100,
+    "accelerator": "gpu"
+  },
+  "dataset": {
+    "raw": "dataset",
+    "train": "train",
+    "val": "val",
+    "test": "test"
+  }
+}
