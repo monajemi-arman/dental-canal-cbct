@@ -5,6 +5,16 @@
   },
   "dataset": {
     "raw": "dataset",
+    "dcm_directory_suffix": "_dcm",
+    "dcm_file_pattern": "_(\\d+)\\.dcm$",
+    "mask_suffix": ".nii",
+    "compressed": 0,
+    "split": {
+      "train": 0.8,
+      "val": 0.1,
+      "test": 0.1
+    },
+    "all": "all",
     "train": "train",
     "val": "val",
     "test": "test"
