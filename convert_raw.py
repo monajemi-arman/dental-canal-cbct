@@ -22,7 +22,7 @@ def main():
     output_all = config['dataset']['all']
     output_images = os.path.join(config['dataset']['all'], 'images')
     output_masks = os.path.join(config['dataset']['all'], 'masks')
-    output_coco = config['dataset']['all'] + '.json'
+    output_json = config['dataset']['all'] + '.json'
 
     # Directories should exist
     for directory in output_all, output_images, output_masks:
@@ -30,17 +30,21 @@ def main():
 
     # Go through the raw dataset folder
     masks = []
-    i = 0
+    output_json_data = {}
+    image_id = 0
     for first in os.listdir(dataset):
-        i += 1
+        image_id += 1
+        bboxes = []
         first = os.path.join(dataset, first)
         for second in os.listdir(first):
             second = os.path.join(first, second)
 
             # Save image
             if second.endswith(config['dataset']['dcm_directory_suffix']):
-                image_data = process_dcm_directory(second, config['dataset']['dcm_file_pattern'])
-                save_np(os.path.join(output_images, str(i)), image_data, compressed)
+                image_data, spacing = process_dcm_directory(second, config['dataset']['dcm_file_pattern'], spacing=True)
+                temp_path = os.path.join(output_images, str(image_id))
+                if not os.path.exists(temp_path):
+                    save_np(temp_path, image_data, compressed)
 
             # Get file suffix
             second_parts = os.path.splitext(second)
@@ -51,13 +55,54 @@ def main():
                     read_image(second)
                 )
 
+            # Process ROI JSON
+            if second_parts[-1].lower() == '.json':
+                with open(second) as f:
+                    json_data = json.load(f)
+                # Get bounding box
+                for markup in json_data['markups']:
+                    size = markup['size']
+                    center = markup['center']
+                    bbox = [0, 0, 0, 0, 0, 0]
+                    indices = len(size)
+                    for i in range(indices):
+                        bbox[i] = (center[i] - size[i] / 2)
+                    for i in range(indices):
+                        j = indices + i
+                        bbox[j] = size[i]
+                    # Save bbox in image bboxes
+                    bboxes.append(bbox)
+
         # Save mask
         masks = sanitize_masks(masks)
         combined_mask = np.logical_or.reduce(masks).astype(np.uint8)
-        save_np(os.path.join(output_masks, str(i)), combined_mask, compressed)
+        temp_path = os.path.join(output_masks, str(image_id))
+        if not os.path.exists(temp_path):
+            save_np(temp_path, combined_mask, compressed)
+
+        # Bounding box processing; Convert mm to pixel
+        new_bboxes = []
+        for bbox in bboxes:
+            for i in range(len(bbox)):
+                if i >= len(spacing):
+                    spacing_i = i - len(spacing)
+                else:
+                    spacing_i = i
+                # Apply ratio
+                bbox[i] /= spacing[spacing_i]
+                # Normal float
+                bbox[i] = float(bbox[i])
+            new_bboxes.append(bbox)
+        bboxes = new_bboxes
+        output_json_data.update({
+            str(image_id): bboxes
+        })
+    # Save bbox JSON
+    with open(output_json, 'w') as f:
+        json.dump(output_json_data, f)
 
 
-def process_dcm_directory(directory, pattern):
+def process_dcm_directory(directory, pattern, spacing=False):
     dcm_files_dict = {}
     for file in os.listdir(directory):
         found = re.search(pattern, file)
@@ -70,18 +115,29 @@ def process_dcm_directory(directory, pattern):
     dcm_keys.sort()
     for dcm_key in dcm_keys:
         dcm_path = os.path.join(directory, dcm_files_dict[dcm_key])
-        image_array = read_image(dcm_path)
+        image_array, metadata = read_image(dcm_path, image_only=False)
         dcm_data.append(image_array)
-    return np.asarray(dcm_data)
+
+    if spacing:
+        return np.asarray(dcm_data), metadata['spacing']
+    else:
+        return np.asarray(dcm_data)
 
 
-def read_image(dcm_path):
-    transforms = Compose([LoadImage(image_only=True)])
-    data = transforms(dcm_path)
-    data = np.asarray(data)
-    if data.shape[-1] == 1:
-        data = data.squeeze(-1)
-    return data
+def read_image(dcm_path, image_only=True):
+    loader = LoadImage(image_only=image_only)
+    loaded = loader(dcm_path)
+
+    if image_only:
+        data = np.asarray(loaded)
+        if data.shape[-1] == 1:
+            data = data.squeeze(-1)
+        return data
+    else:
+        data, metadata = np.asarray(loaded[0]), loaded[1]
+        if data.shape[-1] == 1:
+            data = data.squeeze(-1)
+        return data, metadata
 
 
 def save_np(output_path, obj, compressed=False):
