@@ -95,7 +95,6 @@ def main():
 
     dataset = CustomDataset(image_dir=os.path.join(all_dir, "images"), mask_dir=os.path.join(all_dir, "masks"),
                             annotation_file=all_dir + '.json', image_suffix=image_suffix, transforms=transforms)
-    print(dataset)
 
 if __name__ == '__main__':
     main()
