@@ -40,6 +40,10 @@ class CustomDataset(Dataset):
             # Read image and mask
             image = self.read_image(image_path)
             mask = self.read_image(mask_path)
+
+            # Apply transforms if enabled
+            image = self.transform(image)
+
             # Bounding box from JSON
             bbox = self.annotations[item]
 
@@ -60,7 +64,7 @@ class CustomDataset(Dataset):
 
         if self.transforms:
             for transform in self.transforms:
-                image = transform_func[transform]
+                image = transform_func[transform](image)
 
         return image
 
@@ -91,7 +95,7 @@ def main():
 
     dataset = CustomDataset(image_dir=os.path.join(all_dir, "images"), mask_dir=os.path.join(all_dir, "masks"),
                             annotation_file=all_dir + '.json', image_suffix=image_suffix, transforms=transforms)
-
+    print(dataset)
 
 if __name__ == '__main__':
     main()
