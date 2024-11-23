@@ -4,6 +4,14 @@ __pycache__/
 *$py.class
 dataset/
 .idea/
+all/
+train/
+val/
+test/
+all.json
+train.json
+val.json
+test.json
 
 # C extensions
 *.so

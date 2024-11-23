@@ -2,9 +2,9 @@
 import json
 import os
 import re
-import numpy as np
 from collections import Counter
-from monai.transforms import LoadImage, Compose
+import numpy as np
+from monai.transforms import LoadImage
 from scipy.ndimage import zoom
 
 # Path to config

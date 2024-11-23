@@ -14,9 +14,6 @@
       "val": 0.1,
       "test": 0.1
     },
-    "all": "all",
-    "train": "train",
-    "val": "val",
-    "test": "test"
+    "all": "all"
   }
 }
