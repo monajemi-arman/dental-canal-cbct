@@ -2,6 +2,7 @@
 import json
 import os
 import re
+from math import ceil
 from collections import Counter
 import numpy as np
 from monai.transforms import LoadImage
@@ -20,6 +21,9 @@ def main():
     compressed = config['dataset']['compressed']
     dataset = config['dataset']['raw']
     output_all = config['dataset']['all']
+    output_train = config['dataset']['train']
+    output_val = config['dataset']['val']
+    output_test = config['dataset']['test']
     output_images = os.path.join(config['dataset']['all'], 'images')
     output_masks = os.path.join(config['dataset']['all'], 'masks')
     output_json = config['dataset']['all'] + '.json'
@@ -101,6 +105,11 @@ def main():
     with open(output_json, 'w') as f:
         json.dump(output_json_data, f)
 
+    # Now split JSON into train, test, split
+    ratio = config['dataset']['split']
+    split_json(output_json, config['dataset']['train'], config['dataset']['val'], config['dataset']['test'],
+               ratio=[ratio['train'], ratio['val'], ratio['test']])
+
 
 def process_dcm_directory(directory, pattern, spacing=False):
     dcm_files_dict = {}
@@ -162,6 +171,51 @@ def sanitize_masks(masks):
 def resize_mask(mask, target_shape):
     zoom_factors = [t / s for s, t in zip(mask.shape, target_shape)]
     return zoom(mask, zoom_factors, order=0)
+
+
+def split_json(all_json, train, val, test, ratio):
+    with open(all_json) as f:
+        all_data = json.load(f)
+
+    all_keys = list(all_data.keys())
+    all_count = len(all_keys)
+
+    val_count = ceil(all_count * ratio[1])
+    test_count = ceil(all_count * ratio[2])
+    train_count = all_count - (val_count + test_count)
+
+    train_indices, val_indices, test_indices = [], [], []
+
+    idx = 0
+    # Fill val
+    for count in range(val_count):
+        val_indices.append(idx)
+        idx += 1
+    # Fill test
+    for count in range(test_count):
+        if idx < all_count:
+            test_indices.append(idx)
+            idx += 1
+    # Fill train
+    for count in range(train_count):
+        if idx < all_count:
+            train_indices.append(idx)
+            idx += 1
+
+    # Split into JSONs
+    for output_json, indices in (
+            (train, train_indices),
+            (val, val_indices),
+            (test, test_indices)
+):
+        # Gather data
+        output_data = {}
+        for idx in indices:
+            key = all_keys[idx]
+            output_data.update({key: all_data[key]})
+        # Save to file
+        with open(output_json + '.json', 'w') as f:
+            json.dump(output_data, f)
 
 
 if __name__ == '__main__':
