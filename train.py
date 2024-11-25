@@ -34,10 +34,16 @@ val_dataset = Dataset(config['dataset']['val'])
 train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=32)
 val_loader = torch.utils.data.DataLoader(val_dataset, batch_size=32)
 
-model = LightningUNet()
+# Load model with custom config parameters
+unet_params = config['model']['unet']
+model = LightningUNet(**unet_params)
+
+# Trainer
 trainer = Trainer(
     max_epochs=config['train']['max_epochs'],
     accelerator=config['train']['accelerator'],
     callbacks=[early_stop_callback]
 )
+
+# Training start
 trainer.fit(model, train_loader, val_loader)
