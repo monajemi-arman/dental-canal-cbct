@@ -26,8 +26,8 @@ def main():
 
     # Training
     trainer = Trainer(
-        max_epochs=100,
-        accelerator='gpu',
+        max_epochs=config['train']['max_epochs'],
+        accelerator=config['train']['accelerator'],
         callbacks=[early_stop_callback]
     )
 
@@ -58,6 +58,7 @@ def main():
 
     # Trainer
     trainer = Trainer(
+        enable_progress_bar=True,
         max_epochs=config['train']['max_epochs'],
         accelerator=config['train']['accelerator'],
         callbacks=[early_stop_callback]
