@@ -3,9 +3,10 @@ import torch
 from lightning import Trainer
 from lightning.pytorch.callbacks import EarlyStopping
 import json
+import os
 # Local imports
 from model import LightningUNet
-from data import Dataset
+from data import CustomDataset
 
 # Load config
 config_json = "config.json"
@@ -26,9 +27,22 @@ trainer = Trainer(
     callbacks=[early_stop_callback]
 )
 
-# Dataset
-train_dataset = Dataset(config['dataset']['train'])
-val_dataset = Dataset(config['dataset']['val'])
+# Dataset paths
+train = config['dataset']['train']
+val = config['dataset']['val']
+images = os.path.join(config['dataset']['all'], config['dataset']['images'])
+masks = os.path.join(config['dataset']['all'], config['dataset']['masks'])
+annotation_suffix = '.json'
+transforms = config['dataset']['transforms']
+compressed = config['dataset']['compressed']
+if compressed:
+    image_suffix = '.npz'
+else:
+    image_suffix = '.npy'
+
+# Dataset instances
+train_dataset = CustomDataset(images, masks, train + annotation_suffix, transforms=transforms)
+val_dataset = CustomDataset(images, masks, val + annotation_suffix, transforms=transforms)
 
 # Dataloader
 train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=32)

@@ -26,9 +26,9 @@ class CustomDataset(Dataset):
         :param item: Index integer of image
         :return: Returns image, mask, bbox
         """
-        # item is index int, converting + 1 to string that is image name
-        item = str(item + 1)
-        if item in self.images:
+        # index to key
+        item = self.images[item]
+        if item:
             # Paths to image and mask
             image_path = os.path.join(
                 self.image_dir, item + self.image_suffix
@@ -52,7 +52,8 @@ class CustomDataset(Dataset):
     def load_annotations(self, annotation_file):
         with open(annotation_file) as f:
             data = json.load(f)
-        return data.keys(), data
+        keys = list(data.keys())
+        return keys, data
 
     def read_image(self, image_path):
         return np.load(image_path)

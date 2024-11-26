@@ -24,8 +24,8 @@ def main():
     output_train = config['dataset']['train']
     output_val = config['dataset']['val']
     output_test = config['dataset']['test']
-    output_images = os.path.join(config['dataset']['all'], 'images')
-    output_masks = os.path.join(config['dataset']['all'], 'masks')
+    output_images = os.path.join(config['dataset']['all'], config['dataset']['images'])
+    output_masks = os.path.join(config['dataset']['all'], config['dataset']['masks'])
     output_json = config['dataset']['all'] + '.json'
 
     # Directories should exist
