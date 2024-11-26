@@ -10,7 +10,7 @@ from torch.utils.data import Dataset
 config_json = 'config.json'
 
 
-class CustomDataset(Dataset):
+class BaseDataset(Dataset):
     def __init__(self, image_dir, mask_dir, annotation_file, image_suffix=".npy", transforms=None):
         self.images, self.annotations = self.load_annotations(annotation_file)
         self.image_dir = image_dir
@@ -26,6 +26,9 @@ class CustomDataset(Dataset):
         :param item: Index integer of image
         :return: Returns image, mask, bbox
         """
+        return self.read_item(item)
+
+    def read_item(self, item):
         # index to key
         item = self.images[item]
         if item:
@@ -81,6 +84,23 @@ class CustomDataset(Dataset):
         return normalized
 
 
+class RegionalDataset(BaseDataset):
+    def __getitem__(self, item):
+        image, mask, bbox = self.read_item(item)
+        return self.crop_image_and_mask(image, mask, bbox)
+
+    def crop_image_and_mask(image, mask, bbox):
+        x, y, z, w, h, length_in_z = bbox
+        cropped_image = image[z:z + length_in_z, y:y + h, x:x + w]
+
+        if mask.ndim == 3:
+            cropped_mask = mask[z:z + length_in_z, y:y + h, x:x + w]
+        else:
+            raise ValueError("Mask must be 3D array")
+
+        return cropped_image, cropped_mask
+
+
 def main():
     # Load config from file
     with open(config_json) as f:
@@ -94,8 +114,9 @@ def main():
     else:
         image_suffix = '.npy'
 
-    dataset = CustomDataset(image_dir=os.path.join(all_dir, "images"), mask_dir=os.path.join(all_dir, "masks"),
-                            annotation_file=all_dir + '.json', image_suffix=image_suffix, transforms=transforms)
+    dataset = BaseDataset(image_dir=os.path.join(all_dir, "images"), mask_dir=os.path.join(all_dir, "masks"),
+                          annotation_file=all_dir + '.json', image_suffix=image_suffix, transforms=transforms)
+
 
 if __name__ == '__main__':
     main()
