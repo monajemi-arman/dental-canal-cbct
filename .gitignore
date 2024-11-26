@@ -12,6 +12,7 @@ all.json
 train.json
 val.json
 test.json
+lightning_logs/
 
 # C extensions
 *.so
