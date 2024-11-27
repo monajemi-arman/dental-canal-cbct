@@ -85,20 +85,58 @@ class BaseDataset(Dataset):
 
 
 class RegionalDataset(BaseDataset):
+    def __init__(self, image_dir, mask_dir, annotation_file, image_suffix=".npy", transforms=None):
+        super().__init__(image_dir, mask_dir, annotation_file, image_suffix=".npy", transforms=None)
+
+        # Queue: Images with multiple bounding boxes will create a queue of bboxes before moving to next image
+        self.queue = []  # Queue of bboxes of an image
+        self.offset = 0  # This will be subtracted from requested index in __getitem__
+
     def __getitem__(self, item):
-        image, mask, bbox = self.read_item(item)
-        return self.crop_image_and_mask(image, mask, bbox)
+        # Mind the queue
+        item -= self.offset
+        if item < 0:
+            item = 0
 
-    def crop_image_and_mask(image, mask, bbox):
-        x, y, z, w, h, length_in_z = bbox
-        cropped_image = image[z:z + length_in_z, y:y + h, x:x + w]
+        # Read data
+        image, mask, bboxes = self.read_item(item)
 
-        if mask.ndim == 3:
-            cropped_mask = mask[z:z + length_in_z, y:y + h, x:x + w]
+        # Number of bounding boxes
+        bboxes_shape = np.array(bboxes).shape
+        if len(bboxes_shape) == 1:
+            bbox_count = 1
+        elif len(bboxes_shape) == 2:
+            bbox_count = bboxes_shape[0]
+
+        if bbox_count > 1:
+            for bbox in bboxes:
+                self.queue.append([image, mask, bbox])
+
+        # Getting the item, taking into account the queue
+        if len(self.queue) > 0:
+            ret_image, ret_mask, ret_bbox = self.queue.pop()
+            self.offset += 1
         else:
-            raise ValueError("Mask must be 3D array")
+            # Single bbox image
+            ret_image, ret_mask, ret_bbox = image, mask, bboxes
+
+        # Crop to region
+        cropped_image, cropped_mask = crop_image_and_mask(image, mask, bbox)
 
         return cropped_image, cropped_mask
+
+
+def crop_image_and_mask(image, mask, bbox):
+    bbox = [int(x) for x in bbox]
+    x, y, z, w, h, length_in_z = bbox
+    cropped_image = image[z:z + length_in_z, y:y + h, x:x + w]
+
+    if mask.ndim == 3:
+        cropped_mask = mask[z:z + length_in_z, y:y + h, x:x + w]
+    else:
+        raise ValueError("Mask must be 3D array")
+
+    return cropped_image, cropped_mask
 
 
 def main():
