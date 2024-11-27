@@ -2,6 +2,7 @@
 import json
 import os
 import re
+import gc
 from math import ceil
 from collections import Counter
 import numpy as np
@@ -80,6 +81,8 @@ def main():
         # Save mask
         masks = sanitize_masks(masks)
         combined_mask = np.logical_or.reduce(masks).astype(np.uint8)
+        masks = []
+        gc.collect()
         temp_path = os.path.join(output_masks, str(image_id))
         if not os.path.exists(temp_path):
             save_np(temp_path, combined_mask, compressed)
