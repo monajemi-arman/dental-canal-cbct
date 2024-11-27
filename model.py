@@ -18,12 +18,14 @@ class LightningUNet(LightningModule):
 
     def training_step(self, batch, batch_idx):
         x, y = batch
+        y = y.squeeze(1).long()  # Remove channel dimension and convert to LongTensor
         y_hat = self.model(x)
         loss = self.loss_fn(y_hat, y)
         return loss
 
     def validation_step(self, batch, batch_idx):
         x, y = batch
+        y = y.squeeze(1).long()  # Remove channel dimension and convert to LongTensor
         y_hat = self.model(x)
         val_loss = self.loss_fn(y_hat, y)
         self.log('val_loss', val_loss)
