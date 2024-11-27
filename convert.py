@@ -162,9 +162,8 @@ def sanitize_masks(masks):
     new_masks = []
     for mask in masks:
         if mask.shape != majority_shape:
-            new_masks.append(
-                resize_mask(mask)
-            )
+            mask = resize_mask(mask, majority_shape)
+        new_masks.append(mask)
     return new_masks
 
 
