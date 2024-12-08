@@ -86,7 +86,7 @@ class BaseDataset(Dataset):
 
 class RegionalDataset(BaseDataset):
     def __init__(self, image_dir, mask_dir, annotation_file, image_suffix=".npy", transforms=None):
-        super().__init__(image_dir, mask_dir, annotation_file, image_suffix=".npy", transforms=None)
+        super().__init__(image_dir, mask_dir, annotation_file, image_suffix=".npy", transforms=transforms)
 
         # Queue: Images with multiple bounding boxes will create a queue of bboxes before moving to next image
         self.queue = []  # Queue of bboxes of an image
@@ -98,30 +98,33 @@ class RegionalDataset(BaseDataset):
         if item < 0:
             item = 0
 
-        # Read data
-        image, mask, bboxes = self.read_item(item)
+        if len(self.queue) == 0:
+            # No queue, new read
+            image, mask, bboxes = self.read_item(item)
 
-        # Number of bounding boxes
-        bboxes_shape = np.array(bboxes).shape
-        if len(bboxes_shape) == 1:
-            bbox_count = 1
-        elif len(bboxes_shape) == 2:
-            bbox_count = bboxes_shape[0]
+            # Number of bounding boxes
+            bboxes_shape = np.array(bboxes).shape
+            if len(bboxes_shape) == 1:
+                bbox_count = 1
+            elif len(bboxes_shape) == 2:
+                bbox_count = bboxes_shape[0]
 
-        if bbox_count > 1:
-            for bbox in bboxes:
-                self.queue.append([image, mask, bbox])
+            if bbox_count > 1:
+                for bbox in bboxes:
+                    self.queue.append([image, mask, bbox])
+                    self.offset += 1
+            else:
+                self.queue.append([image, mask, bboxes])
 
         # Getting the item, taking into account the queue
-        if len(self.queue) > 0:
-            ret_image, ret_mask, ret_bbox = self.queue.pop()
-            self.offset += 1
-        else:
-            # Single bbox image
-            ret_image, ret_mask, ret_bbox = image, mask, bboxes
+        image, mask, bbox = self.queue.pop()
 
         # Crop to region
         cropped_image, cropped_mask = crop_image_and_mask(image, mask, bbox)
+
+        # Apply transforms if set
+        if self.transforms:
+            cropped_image = self.transform(cropped_image)
 
         return cropped_image, cropped_mask
 
@@ -152,8 +155,14 @@ def main():
     else:
         image_suffix = '.npy'
 
-    dataset = BaseDataset(image_dir=os.path.join(all_dir, "images"), mask_dir=os.path.join(all_dir, "masks"),
+    dataset = RegionalDataset(image_dir=os.path.join(all_dir, "images"), mask_dir=os.path.join(all_dir, "masks"),
                           annotation_file=all_dir + '.json', image_suffix=image_suffix, transforms=transforms)
+
+    dataset.__getitem__(0)
+    dataset.__getitem__(1)
+    dataset.__getitem__(2)
+    dataset.__getitem__(3)
+    dataset.__getitem__(4)
 
 
 if __name__ == '__main__':

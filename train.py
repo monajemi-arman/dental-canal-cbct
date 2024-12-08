@@ -172,15 +172,14 @@ def mosaic_collate(
 
     # First pass: Validate inputs and collect statistics
     for idx, (image, mask) in enumerate(batch):
-        # Convert to torch tensors
         image = safe_convert_to_tensor(image)
         mask = safe_convert_to_tensor(mask)
 
         # For grayscale 3D volumes, ensure single-channel input
         if image.ndim == 3:
-            image = image.unsqueeze(0)  # Add channel dimension
+            image = image.unsqueeze(0)
         if mask.ndim == 3:
-            mask = mask.unsqueeze(0)  # Add channel dimension
+            mask = mask.unsqueeze(0)
 
         # Validate tensor dimensions
         if image.ndim != 4 or mask.ndim != 4:
