@@ -52,8 +52,8 @@ def main():
     val_dataset = RegionalDataset(images, masks, val + annotation_suffix, transforms=transforms)
 
     # Dataloader
-    train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=32, collate_fn=mosaic_collate)
-    val_loader = torch.utils.data.DataLoader(val_dataset, batch_size=32, collate_fn=mosaic_collate)
+    train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=4, num_workers=1, collate_fn=mosaic_collate)
+    val_loader = torch.utils.data.DataLoader(val_dataset, batch_size=4, num_workers=1, collate_fn=mosaic_collate)
 
     # Load model with custom config parameters
     unet_params = config['model']['unet']
