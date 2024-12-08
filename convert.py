@@ -12,6 +12,10 @@ from scipy.ndimage import zoom
 # Path to config
 config_json = 'config.json'
 
+# Is spacing of x, y, z the same? Set to yes, this is to lazily patch a bug!
+# 3D slicer images I received where separate 2D images, put together they make up a 3D one
+# Each 2D knows only the X and Y spacing
+ALL_SPACING_IS_THE_SAME = True
 
 def main():
     # Load config
@@ -96,6 +100,8 @@ def main():
                 else:
                     spacing_i = i
                 # Apply ratio
+                if ALL_SPACING_IS_THE_SAME:
+                    spacing_i = 0
                 bbox[i] /= spacing[spacing_i]
                 # Normal float
                 bbox[i] = float(bbox[i])
