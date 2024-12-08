@@ -122,6 +122,9 @@ class RegionalDataset(BaseDataset):
         # Crop to region
         cropped_image, cropped_mask = crop_image_and_mask(image, mask, bbox)
 
+        # Fix order of dimensions (x,y,z to z,y,x)
+        cropped_image = np.transpose(cropped_image, (2, 1, 0))
+
         # Apply transforms if set
         if self.transforms:
             cropped_image = self.transform(cropped_image)
@@ -132,10 +135,10 @@ class RegionalDataset(BaseDataset):
 def crop_image_and_mask(image, mask, bbox):
     bbox = [int(x) for x in bbox]
     x, y, z, w, h, length_in_z = bbox
-    cropped_image = image[z:z + length_in_z, y:y + h, x:x + w]
+    cropped_image = image[x: x + w, y: y + h, z: z + length_in_z]
 
     if mask.ndim == 3:
-        cropped_mask = mask[z:z + length_in_z, y:y + h, x:x + w]
+        cropped_mask = mask[x: x + w, y: y + h, z: z + length_in_z]
     else:
         raise ValueError("Mask must be 3D array")
 
@@ -156,7 +159,7 @@ def main():
         image_suffix = '.npy'
 
     dataset = RegionalDataset(image_dir=os.path.join(all_dir, "images"), mask_dir=os.path.join(all_dir, "masks"),
-                          annotation_file=all_dir + '.json', image_suffix=image_suffix, transforms=transforms)
+                              annotation_file=all_dir + '.json', image_suffix=image_suffix, transforms=transforms)
 
     dataset.__getitem__(0)
     dataset.__getitem__(1)
