@@ -16,6 +16,9 @@ class LightningUNet(LightningModule):
         self.model = UNet(**unet_params).to("cuda" if torch.cuda.is_available() else "cpu")
         self.loss_fn = CrossEntropyLoss()
 
+    def forward(self, x):
+        return self.model(x)
+
     def training_step(self, batch, batch_idx):
         x, y = batch
         y = y.squeeze(1).long()  # Remove channel dimension and convert to LongTensor
