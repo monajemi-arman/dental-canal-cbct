@@ -124,6 +124,7 @@ class RegionalDataset(BaseDataset):
 
         # Fix order of dimensions (x,y,z to z,y,x)
         cropped_image = np.transpose(cropped_image, (2, 1, 0))
+        cropped_mask = np.transpose(cropped_mask, (2, 1, 0))
 
         # Apply transforms if set
         if self.transforms:
@@ -161,11 +162,8 @@ def main():
     dataset = RegionalDataset(image_dir=os.path.join(all_dir, "images"), mask_dir=os.path.join(all_dir, "masks"),
                               annotation_file=all_dir + '.json', image_suffix=image_suffix, transforms=transforms)
 
-    dataset.__getitem__(0)
-    dataset.__getitem__(1)
-    dataset.__getitem__(2)
-    dataset.__getitem__(3)
-    dataset.__getitem__(4)
+    first = dataset.__getitem__(0)
+    print(first)
 
 
 if __name__ == '__main__':
