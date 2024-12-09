@@ -22,18 +22,33 @@ class UnetPredictor():
         self.model = LightningUNet.load_from_checkpoint(checkpoint, **unet_params)
         self.model.eval()
 
-    def predict(self, image):
+    def predict(self, image, revert_size=True):
         """
         Prediction function
         :param image: Grey 3D input image in format [D, H, W]
         :return: Returns model prediction mask
         """
+        orig_shape = image.shape
+        # Resize to expected size of model
         image = self.resize_3d_tensor(image)
-        image = image.unsqueeze(0)
-        return self.model(image)
+        image = image.unsqueeze(0).unsqueeze(0)
+        # Pass to model
+        predictions = self.model(image)
+        pred_mask = self.process_model_output(predictions)
+        pred_mask = pred_mask.squeeze(0)
+        if revert_size:
+            # Revert back to original size
+            pred_mask = self.resize_3d_tensor(pred_mask, target_size=orig_shape, mode='nearest')
+        return pred_mask
 
     @staticmethod
-    def resize_3d_tensor(input_tensor, target_size=(256, 256, 256)):
+    def process_model_output(predictions):
+        probabilities = torch.sigmoid(predictions)[:, 1]
+        binary_mask = (probabilities > 0.5).float()
+        return binary_mask
+
+    @staticmethod
+    def resize_3d_tensor(input_tensor, target_size=(128, 128, 128), mode='trilinear'):
         # Ensure input is a 3D tensor
         if input_tensor.dim() != 3:
             raise ValueError(f"Input tensor must be 3D, got {input_tensor.dim()}D tensor")
@@ -46,8 +61,8 @@ class UnetPredictor():
         resized = F.interpolate(
             x,
             size=target_size,
-            mode='trilinear',
-            align_corners=False
+            mode=mode,
+            align_corners=False if mode in ['trilinear', 'bilinear'] else None
         )
 
         # Remove batch and channel dimensions
