@@ -1,7 +1,13 @@
 {
+  "predict": {
+    "checkpoint": {
+      "unet": "checkpoint.ckpt"
+    }
+  },
   "train": {
     "max_epochs": 100,
-    "accelerator": "gpu"
+    "accelerator": "gpu",
+    "device": "cuda"
   },
   "dataset": {
     "raw": "dataset",
