@@ -13,6 +13,7 @@ train.json
 val.json
 test.json
 lightning_logs/
+*.ckpt
 
 # C extensions
 *.so
