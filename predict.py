@@ -85,7 +85,8 @@ def main():
     annotation_suffix = '.json'
     transforms = config['dataset']['transforms']
 
-    train_dataset = RegionalDataset(images, masks, train + annotation_suffix, transforms=transforms)
+    train_dataset = RegionalDataset(images, masks, train + annotation_suffix, transforms=transforms,
+                                    target_size=config['dataset']['crop_target_size'])
     image, mask = train_dataset.__getitem__(0)
     image = torch.as_tensor(image, device=device)
 
