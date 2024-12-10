@@ -28,16 +28,16 @@ class BaseDataset(Dataset):
         """
         return self.read_item(item)
 
-    def read_item(self, item):
+    def read_item(self, idx):
         # index to key
-        item = self.images[item]
-        if item:
+        key = self.image_id_to_key(idx)
+        if key:
             # Paths to image and mask
             image_path = os.path.join(
-                self.image_dir, item + self.image_suffix
+                self.image_dir, key + self.image_suffix
             )
             mask_path = os.path.join(
-                self.mask_dir, item + self.image_suffix
+                self.mask_dir, key + self.image_suffix
             )
 
             # Read image and mask
@@ -48,7 +48,7 @@ class BaseDataset(Dataset):
             image = self.transform(image)
 
             # Bounding box from JSON
-            bbox = self.annotations[item]
+            bbox = self.annotations[key]
 
             return image, mask, bbox
 
@@ -83,6 +83,12 @@ class BaseDataset(Dataset):
         normalized = (image - min_val) / (max_val - min_val)
         return normalized
 
+    def image_id_to_key(self, idx):
+        return self.images[idx]
+
+    def key_to_image_id(self, key):
+        return self.images.index(key)
+
 
 class RegionalDataset(BaseDataset):
     def __init__(self, image_dir, mask_dir, annotation_file, image_suffix=".npy", transforms=None):
@@ -92,32 +98,14 @@ class RegionalDataset(BaseDataset):
         self.queue = []  # Queue of bboxes of an image
         self.offset = 0  # This will be subtracted from requested index in __getitem__
 
-    def __getitem__(self, item):
-        # Mind the queue
-        item -= self.offset
-        if item < 0:
-            item = 0
+        # Populate boxes
+        self.boxes, self.box_id_to_image_id = self.get_boxes()
 
-        if len(self.queue) == 0:
-            # No queue, new read
-            image, mask, bboxes = self.read_item(item)
+    def __getitem__(self, box_id):
+        image_id = self.box_id_to_image_id(box_id)
 
-            # Number of bounding boxes
-            bboxes_shape = np.array(bboxes).shape
-            if len(bboxes_shape) == 1:
-                bbox_count = 1
-            elif len(bboxes_shape) == 2:
-                bbox_count = bboxes_shape[0]
-
-            if bbox_count > 1:
-                for bbox in bboxes:
-                    self.queue.append([image, mask, bbox])
-                    self.offset += 1
-            else:
-                self.queue.append([image, mask, bboxes])
-
-        # Getting the item, taking into account the queue
-        image, mask, bbox = self.queue.pop()
+        image, mask = self.read_item(image_id)
+        bbox = self.boxes[box_id]
 
         # Crop to region
         cropped_image, cropped_mask = crop_image_and_mask(image, mask, bbox)
@@ -131,6 +119,22 @@ class RegionalDataset(BaseDataset):
             cropped_image = self.transform(cropped_image)
 
         return cropped_image, cropped_mask
+
+    def get_boxes(self):
+        all_boxes = []
+        box_id_to_image_id = {}
+        box_id = 0
+        for key in self.annotations.keys():
+            # Get image id
+            image_id = self.key_to_image_id(key)
+            # Save boxes and corresponding image id
+            boxes = self.annotations[key]
+            for box in boxes:
+                all_boxes.append(box)
+                box_id_to_image_id[box_id] = image_id
+                box_id += 1
+
+        return all_boxes, box_id_to_image_id
 
 
 def crop_image_and_mask(image, mask, bbox):
