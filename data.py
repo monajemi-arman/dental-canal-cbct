@@ -102,9 +102,9 @@ class RegionalDataset(BaseDataset):
         self.boxes, self.box_id_to_image_id = self.get_boxes()
 
     def __getitem__(self, box_id):
-        image_id = self.box_id_to_image_id(box_id)
+        image_id = self.box_id_to_image_id[box_id]
 
-        image, mask = self.read_item(image_id)
+        image, mask, _ = self.read_item(image_id)
         bbox = self.boxes[box_id]
 
         # Crop to region
