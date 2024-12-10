@@ -7,7 +7,10 @@
   "train": {
     "max_epochs": 100,
     "accelerator": "gpu",
-    "device": "cuda"
+    "device": "cuda",
+    "early_stop_callback": {
+      "patience": 100
+    }
   },
   "dataset": {
     "raw": "dataset",
@@ -34,7 +37,7 @@
     "unet": {
       "spatial_dims": 3,
       "in_channels": 1,
-      "out_channels": 2,
+      "out_channels": 1,
       "channels": [
         16,
         32,
