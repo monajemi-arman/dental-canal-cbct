@@ -48,8 +48,10 @@ def main():
         image_suffix = '.npy'
 
     # Dataset instances
-    train_dataset = RegionalDataset(images, masks, train + annotation_suffix, transforms=transforms)
-    val_dataset = RegionalDataset(images, masks, val + annotation_suffix, transforms=transforms)
+    train_dataset = RegionalDataset(images, masks, train + annotation_suffix, transforms=transforms,
+                                    target_size=config['dataset']['crop_target_size'])
+    val_dataset = RegionalDataset(images, masks, val + annotation_suffix, transforms=transforms,
+                                  target_size=config['dataset']['crop_target_size'])
 
     # Dataloader
     train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=4, num_workers=1)
