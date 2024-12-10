@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 from lightning import LightningModule
 from monai.networks.nets import UNet
-from torch.nn import CrossEntropyLoss
+from monai.losses import DiceCELoss
 import torch
 import json
 from torch.optim import Adam
@@ -14,21 +14,21 @@ class LightningUNet(LightningModule):
     def __init__(self, **unet_params):
         super().__init__()
         self.model = UNet(**unet_params).to("cuda" if torch.cuda.is_available() else "cpu")
-        self.loss_fn = CrossEntropyLoss()
+        self.loss_fn = DiceCELoss()
 
     def forward(self, x):
         return self.model(x)
 
     def training_step(self, batch, batch_idx):
         x, y = batch
-        y = y.squeeze(1).long()  # Remove channel dimension and convert to LongTensor
+        y = y.long()
         y_hat = self.model(x)
         loss = self.loss_fn(y_hat, y)
         return loss
 
     def validation_step(self, batch, batch_idx):
         x, y = batch
-        y = y.squeeze(1).long()  # Remove channel dimension and convert to LongTensor
+        y = y.long()
         y_hat = self.model(x)
         val_loss = self.loss_fn(y_hat, y)
         self.log('val_loss', val_loss)
