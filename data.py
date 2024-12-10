@@ -1,9 +1,9 @@
 #!/usr/bin/env python
 import json
 import os
-from locale import normalize
-
 import numpy as np
+import torch
+from scipy.ndimage import zoom
 from torch.utils.data import Dataset
 
 # Path to config file
@@ -89,14 +89,29 @@ class BaseDataset(Dataset):
     def key_to_image_id(self, key):
         return self.images.index(key)
 
+    @staticmethod
+    def resize(image, target_size=(50, 50, 100), is_mask=False):
+        if not isinstance(image, (np.ndarray, torch.Tensor)):
+            raise TypeError("Input image must be a numpy array or a tensor.")
+
+        image_is_tensor = torch.is_tensor(image)
+        if image_is_tensor:
+            image = image.detach().cpu().numpy()
+
+        if len(image.shape) != 3:
+            raise ValueError("Input image must have 3 dimensions (d, h, w).")
+
+        scale_factors = [t / s for t, s in zip(target_size, image.shape)]
+        resized = zoom(image, scale_factors, order=0 if is_mask else 3)
+
+        return torch.from_numpy(resized) if image_is_tensor else resized
+
 
 class RegionalDataset(BaseDataset):
-    def __init__(self, image_dir, mask_dir, annotation_file, image_suffix=".npy", transforms=None):
+    def __init__(self, image_dir, mask_dir, annotation_file, image_suffix=".npy", transforms=None, target_size=[50, 50, 100]):
         super().__init__(image_dir, mask_dir, annotation_file, image_suffix=".npy", transforms=transforms)
 
-        # Queue: Images with multiple bounding boxes will create a queue of bboxes before moving to next image
-        self.queue = []  # Queue of bboxes of an image
-        self.offset = 0  # This will be subtracted from requested index in __getitem__
+        self.target_size = target_size
 
         # Populate boxes
         self.boxes, self.box_id_to_image_id = self.get_boxes()
@@ -117,6 +132,10 @@ class RegionalDataset(BaseDataset):
         # Apply transforms if set
         if self.transforms:
             cropped_image = self.transform(cropped_image)
+
+        # Final resize
+        cropped_image = self.resize(cropped_image)
+        cropped_mask = self.resize(cropped_mask, target_size=self.target_size , is_mask=True)
 
         return cropped_image, cropped_mask
 
