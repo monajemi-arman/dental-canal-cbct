@@ -5,6 +5,7 @@
     }
   },
   "train": {
+    "batch_size": 1,
     "max_epochs": 100,
     "accelerator": "gpu",
     "device": "cuda",
@@ -47,12 +48,11 @@
         256
       ],
       "strides": [
-        2,
-        2,
-        2,
-        2
-      ],
-      "num_res_units": 2
+        1,
+        1,
+        1,
+        1
+      ]
     }
   }
 }
