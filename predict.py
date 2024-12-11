@@ -34,7 +34,7 @@ class UnetPredictor():
         orig_shape = image.shape
         # Resize to expected size of model
         image = self.resize_3d_tensor(image)
-        image = image.unsqueeze(0).unsqueeze(0)
+        image = image.unsqueeze(0)
         # Pass to model
         predictions = self.model(image)
         pred_mask = self.process_model_output(predictions)
