@@ -137,6 +137,10 @@ class RegionalDataset(BaseDataset):
         cropped_image = self.resize(cropped_image)
         cropped_mask = self.resize(cropped_mask, target_size=self.target_size , is_mask=True)
 
+        # To tensor
+        cropped_image = torch.as_tensor(cropped_image)
+        cropped_mask = torch.as_tensor(cropped_mask)
+
         return cropped_image, cropped_mask
 
     def get_boxes(self):
