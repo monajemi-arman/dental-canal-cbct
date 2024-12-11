@@ -40,6 +40,7 @@ def main():
     images = os.path.join(config['dataset']['all'], config['dataset']['images'])
     masks = os.path.join(config['dataset']['all'], config['dataset']['masks'])
     annotation_suffix = '.json'
+    batch_size = config['train']['batch_size']
     transforms = config['dataset']['transforms']
     compressed = config['dataset']['compressed']
     if compressed:
@@ -54,8 +55,8 @@ def main():
                                   target_size=config['dataset']['crop_target_size'])
 
     # Dataloader
-    train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=4, num_workers=1)
-    val_loader = torch.utils.data.DataLoader(val_dataset, batch_size=4, num_workers=1)
+    train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=batch_size, num_workers=1)
+    val_loader = torch.utils.data.DataLoader(val_dataset, batch_size=batch_size, num_workers=1)
 
     # Load model with custom config parameters
     unet_params = config['model']['unet']
