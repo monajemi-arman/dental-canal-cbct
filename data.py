@@ -138,8 +138,8 @@ class RegionalDataset(BaseDataset):
         cropped_mask = self.resize(cropped_mask, target_size=self.target_size , is_mask=True)
 
         # To tensor
-        cropped_image = torch.as_tensor(cropped_image)
-        cropped_mask = torch.as_tensor(cropped_mask)
+        cropped_image = torch.as_tensor(cropped_image).unsqueeze(0)
+        cropped_mask = torch.as_tensor(cropped_mask).unsqueeze(0)
 
         return cropped_image, cropped_mask
 
