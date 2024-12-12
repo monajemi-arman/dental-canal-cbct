@@ -1,9 +1,10 @@
 #!/usr/bin/env python
+
+import json
+import torch
+from monai.losses import DiceCELoss
 from lightning import LightningModule
 from monai.networks.nets import UNet
-from monai.losses import DiceCELoss
-import torch
-import json
 from torch.optim import Adam
 
 # Path to config file
