@@ -90,7 +90,7 @@ class BaseDataset(Dataset):
         return self.images.index(key)
 
     @staticmethod
-    def resize(image, target_size=(50, 50, 100), is_mask=False):
+    def resize(image, target_size=(100, 50, 50), is_mask=False):
         if not isinstance(image, (np.ndarray, torch.Tensor)):
             raise TypeError("Input image must be a numpy array or a tensor.")
 
@@ -108,7 +108,7 @@ class BaseDataset(Dataset):
 
 
 class RegionalDataset(BaseDataset):
-    def __init__(self, image_dir, mask_dir, annotation_file, image_suffix=".npy", transforms=None, target_size=[50, 50, 100]):
+    def __init__(self, image_dir, mask_dir, annotation_file, image_suffix=".npy", transforms=None, target_size=[100, 50, 50]):
         super().__init__(image_dir, mask_dir, annotation_file, image_suffix=".npy", transforms=transforms)
 
         self.target_size = target_size
