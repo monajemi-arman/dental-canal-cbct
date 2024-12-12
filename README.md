@@ -51,3 +51,9 @@ All the configs related to training, dataset conversion and split, transforms, a
 ```bash
 python train.py 
 ```
+
+* **Prediction**
+```bash
+python predict.py <path to checkpoint> 
+```
+![](demo/predict.png)
