@@ -24,8 +24,8 @@ cd dental-canal-cbct/
 ```bash
 pip install -r requirements.txt
 ```
-# Usage
-* **Dataset**  
+
+# Dataset
 Your dataset must be put in 'dataset' folder in project directory and follow this order:  
 ```
 dataset/  
@@ -39,7 +39,14 @@ dataset/
             -- ...
     ... ... ...
 ```
-* Once your dataset is in this format, run the convert script to prepare numpy arrays of your images and masks along with a concise JSON of bounding boxes:
+Dataset class in this project provides two types of loading data into model:
+* **BaseDataset**: Returns **[image, mask, bounding boxes list]** for every image
+* **RegionalDataset**: Crops image and mask based on bounding box and returns the resulting **[image, mask]**.
+  
+
+# Usage
+* **Dataset**  
+Once your dataset is in this format, run the convert script to prepare numpy arrays of your images and masks along with a concise JSON of bounding boxes:
 ```bash
 python convert.py
 ```
@@ -56,4 +63,5 @@ python train.py
 ```bash
 python predict.py <path to checkpoint> 
 ```
+We're still gathering clinical data, this prediction is when only data of 9 patients were gathered.
 ![](demo/predict.png)
