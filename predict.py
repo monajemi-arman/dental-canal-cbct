@@ -32,11 +32,12 @@ class UnetPredictor():
         :return: Returns model prediction mask
         """
         orig_shape = image.shape
-        # Resize to expected size of model
-        image = self.resize_3d_tensor(image)
-        image = image.unsqueeze(0)
+
         # Pass to model
-        predictions = self.model(image)
+        with torch.inference_mode():
+            predictions = self.model(image.unsqueeze(0))
+
+        # Return the mask
         pred_mask = self.process_model_output(predictions)
         if revert_size:
             # Revert back to original size
@@ -44,7 +45,8 @@ class UnetPredictor():
         return pred_mask
 
     @staticmethod
-    def process_model_output(predictions, threshold=0.5):
+    def process_model_output(predictions, threshold=0.1):
+        predictions = torch.sigmoid(predictions)
         binary_mask = (predictions > threshold).float().detach().cpu()
         binary_mask = binary_mask.squeeze(0).squeeze(0)
         return binary_mask
@@ -112,11 +114,17 @@ def display_most_important_layer(mask, pred_mask):
     def validate_and_convert(input_mask):
         if isinstance(input_mask, np.ndarray):
             if input_mask.ndim != 3:
-                raise ValueError("Input must be a 3D numpy array.")
+                if input_mask.ndim == 4:
+                    input_mask = torch.as_tensor(input_mask).squeeze(0)
+                else:
+                    raise ValueError("Input must be a 3D numpy array.")
             return input_mask
         elif isinstance(input_mask, torch.Tensor):
             if input_mask.dim() != 3:
-                raise ValueError("Input must be a 3D torch tensor.")
+                if input_mask.dim() == 4:
+                    input_mask = input_mask.squeeze(0)
+                else:
+                    raise ValueError("Input must be a 3D numpy array.")
             return input_mask.cpu().numpy()
         else:
             raise TypeError("Input must be either a torch.Tensor or a numpy.ndarray.")
