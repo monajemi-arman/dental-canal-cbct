@@ -4,6 +4,8 @@ import os
 import numpy as np
 import torch
 from scipy.ndimage import zoom
+import matplotlib.pyplot as plt
+from ipywidgets import interact, IntSlider
 from torch.utils.data import Dataset
 
 # Path to config file
@@ -106,6 +108,21 @@ class BaseDataset(Dataset):
 
         return torch.from_numpy(resized) if image_is_tensor else resized
 
+    @staticmethod
+    def visualize(image, mask, default_depth=110):
+        if image.shape != mask.shape:
+            raise ValueError("Image and mask must have the same shape.")
+
+        def display_layer(layer):
+            plt.figure(figsize=(8, 8))
+            plt.imshow(image[layer], cmap='gray')
+            plt.imshow(mask[layer], cmap='jet', alpha=0.5)
+            plt.title(f"Layer {layer}")
+            plt.axis('off')
+            plt.show()
+
+        # Create a slider for selecting the layer
+        interact(display_layer, layer=IntSlider(min=0, max=image.shape[0] - 1, step=1, value=default_depth))
 
 class RegionalDataset(BaseDataset):
     def __init__(self, image_dir, mask_dir, annotation_file, image_suffix=".npy", transforms=None, target_size=[100, 50, 50]):
@@ -124,10 +141,6 @@ class RegionalDataset(BaseDataset):
 
         # Crop to region
         cropped_image, cropped_mask = crop_image_and_mask(image, mask, bbox)
-
-        # Fix order of dimensions (x,y,z to z,y,x)
-        cropped_image = np.transpose(cropped_image, (2, 1, 0))
-        cropped_mask = np.transpose(cropped_mask, (2, 1, 0))
 
         # Apply transforms if set
         if self.transforms:
@@ -162,11 +175,11 @@ class RegionalDataset(BaseDataset):
 
 def crop_image_and_mask(image, mask, bbox):
     bbox = [int(x) for x in bbox]
-    x, y, z, w, h, length_in_z = bbox
-    cropped_image = image[x: x + w, y: y + h, z: z + length_in_z]
+    x, y, z, w, h, depth = bbox
+    cropped_image = image[z: z + depth, y: y + h, x: x + w]
 
     if mask.ndim == 3:
-        cropped_mask = mask[x: x + w, y: y + h, z: z + length_in_z]
+        cropped_mask = mask[z: z + depth, y: y + h, x: x + w]
     else:
         raise ValueError("Mask must be 3D array")
 
