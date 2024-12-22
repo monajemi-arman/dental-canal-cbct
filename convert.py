@@ -10,12 +10,17 @@ from monai.transforms import LoadImage
 from scipy.ndimage import zoom
 
 # Path to config
-config_json = 'config.json'
+config_json = "config.json"
+
+# Output
+# image and mask are in shape [D, H, W]
+# bbox is in shape [x, y, z, width, height, depth]
 
 # Is spacing of x, y, z the same? Set to yes, this is to lazily patch a bug!
 # 3D slicer images I received where separate 2D images, put together they make up a 3D one
 # Each 2D knows only the X and Y spacing
 ALL_SPACING_IS_THE_SAME = True
+
 
 def main():
     # Load config
@@ -23,15 +28,15 @@ def main():
         config = json.load(f)
 
     # Load parameters from config
-    compressed = config['dataset']['compressed']
-    dataset = config['dataset']['raw']
-    output_all = config['dataset']['all']
-    output_train = config['dataset']['train']
-    output_val = config['dataset']['val']
-    output_test = config['dataset']['test']
-    output_images = os.path.join(config['dataset']['all'], config['dataset']['images'])
-    output_masks = os.path.join(config['dataset']['all'], config['dataset']['masks'])
-    output_json = config['dataset']['all'] + '.json'
+    compressed = config["dataset"]["compressed"]
+    dataset = config["dataset"]["raw"]
+    output_all = config["dataset"]["all"]
+    output_train = config["dataset"]["train"]
+    output_val = config["dataset"]["val"]
+    output_test = config["dataset"]["test"]
+    output_images = os.path.join(config["dataset"]["all"], config["dataset"]["images"])
+    output_masks = os.path.join(config["dataset"]["all"], config["dataset"]["masks"])
+    output_json = config["dataset"]["all"] + ".json"
 
     # Directories should exist
     for directory in output_all, output_images, output_masks:
@@ -49,33 +54,34 @@ def main():
             second = os.path.join(first, second)
 
             # Save image
-            if second.endswith(config['dataset']['dcm_directory_suffix']):
-                image_data, spacing = process_dcm_directory(second, config['dataset']['dcm_file_pattern'], spacing=True)
+            if second.endswith(config["dataset"]["dcm_directory_suffix"]):
+                image_data, spacing = process_dcm_directory(
+                    second, config["dataset"]["dcm_file_pattern"], spacing=True
+                )
                 temp_path = os.path.join(output_images, str(image_id))
                 if not os.path.exists(temp_path):
+                    image_data = before_save_image(image_data)
                     save_np(temp_path, image_data, compressed)
 
             # Get file suffix
             second_parts = os.path.splitext(second)
 
             # Gather mask if seen
-            if second_parts[-1] == config['dataset']['mask_suffix']:
-                masks.append(
-                    read_image(second)
-                )
+            if second_parts[-1] == config["dataset"]["mask_suffix"]:
+                masks.append(read_image(second))
 
             # Process ROI JSON
-            if second_parts[-1].lower() == '.json':
+            if second_parts[-1].lower() == ".json":
                 with open(second) as f:
                     json_data = json.load(f)
                 # Get bounding box
-                for markup in json_data['markups']:
-                    size = markup['size']
-                    center = markup['center']
+                for markup in json_data["markups"]:
+                    size = markup["size"]
+                    center = markup["center"]
                     bbox = [0, 0, 0, 0, 0, 0]
                     indices = len(size)
                     for i in range(indices):
-                        bbox[i] = (center[i] - size[i] / 2)
+                        bbox[i] = center[i] - size[i] / 2
                     for i in range(indices):
                         j = indices + i
                         bbox[j] = size[i]
@@ -89,6 +95,7 @@ def main():
         gc.collect()
         temp_path = os.path.join(output_masks, str(image_id))
         if not os.path.exists(temp_path):
+            combined_mask = before_save_mask(combined_mask)
             save_np(temp_path, combined_mask, compressed)
 
         # Bounding box processing; Convert mm to pixel
@@ -107,17 +114,20 @@ def main():
                 bbox[i] = float(bbox[i])
             new_bboxes.append(bbox)
         bboxes = new_bboxes
-        output_json_data.update({
-            str(image_id): bboxes
-        })
+        output_json_data.update({str(image_id): bboxes})
     # Save bbox JSON
-    with open(output_json, 'w') as f:
+    with open(output_json, "w") as f:
         json.dump(output_json_data, f)
 
     # Now split JSON into train, test, split
-    ratio = config['dataset']['split']
-    split_json(output_json, config['dataset']['train'], config['dataset']['val'], config['dataset']['test'],
-               ratio=[ratio['train'], ratio['val'], ratio['test']])
+    ratio = config["dataset"]["split"]
+    split_json(
+        output_json,
+        config["dataset"]["train"],
+        config["dataset"]["val"],
+        config["dataset"]["test"],
+        ratio=[ratio["train"], ratio["val"], ratio["test"]],
+    )
 
 
 def process_dcm_directory(directory, pattern, spacing=False):
@@ -137,7 +147,7 @@ def process_dcm_directory(directory, pattern, spacing=False):
         dcm_data.append(image_array)
 
     if spacing:
-        return np.asarray(dcm_data), metadata['spacing']
+        return np.asarray(dcm_data), metadata["spacing"]
     else:
         return np.asarray(dcm_data)
 
@@ -160,9 +170,9 @@ def read_image(dcm_path, image_only=True):
 
 def save_np(output_path, obj, compressed=False):
     if compressed:
-        np.savez_compressed(output_path + '.npz', obj)
+        np.savez_compressed(output_path + ".npz", obj)
     else:
-        np.save(output_path + '.npy', obj)
+        np.save(output_path + ".npy", obj)
 
 
 def sanitize_masks(masks):
@@ -179,6 +189,17 @@ def sanitize_masks(masks):
 def resize_mask(mask, target_shape):
     zoom_factors = [t / s for s, t in zip(mask.shape, target_shape)]
     return zoom(mask, zoom_factors, order=0)
+
+
+def before_save_image(image):
+    image = np.rot90(image, k=-1, axes=(1, 2))
+    image = np.flip(image, axis=2)
+    return image
+
+
+def before_save_mask(mask):
+    mask = mask.T
+    return mask
 
 
 def split_json(all_json, train, val, test, ratio):
@@ -212,19 +233,19 @@ def split_json(all_json, train, val, test, ratio):
 
     # Split into JSONs
     for output_json, indices in (
-            (train, train_indices),
-            (val, val_indices),
-            (test, test_indices)
-):
+        (train, train_indices),
+        (val, val_indices),
+        (test, test_indices),
+    ):
         # Gather data
         output_data = {}
         for idx in indices:
             key = all_keys[idx]
             output_data.update({key: all_data[key]})
         # Save to file
-        with open(output_json + '.json', 'w') as f:
+        with open(output_json + ".json", "w") as f:
             json.dump(output_data, f)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()
