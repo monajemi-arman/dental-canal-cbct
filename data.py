@@ -4,16 +4,16 @@ import os
 import numpy as np
 import torch
 from scipy.ndimage import zoom
-import matplotlib.pyplot as plt
-from ipywidgets import interact, IntSlider
 from torch.utils.data import Dataset
 
 # Path to config file
-config_json = 'config.json'
+config_json = "config.json"
 
 
 class BaseDataset(Dataset):
-    def __init__(self, image_dir, mask_dir, annotation_file, image_suffix=".npy", transforms=None):
+    def __init__(
+        self, image_dir, mask_dir, annotation_file, image_suffix=".npy", transforms=None
+    ):
         self.images, self.annotations = self.load_annotations(annotation_file)
         self.image_dir = image_dir
         self.mask_dir = mask_dir
@@ -35,12 +35,8 @@ class BaseDataset(Dataset):
         key = self.image_id_to_key(idx)
         if key:
             # Paths to image and mask
-            image_path = os.path.join(
-                self.image_dir, key + self.image_suffix
-            )
-            mask_path = os.path.join(
-                self.mask_dir, key + self.image_suffix
-            )
+            image_path = os.path.join(self.image_dir, key + self.image_suffix)
+            mask_path = os.path.join(self.mask_dir, key + self.image_suffix)
 
             # Read image and mask
             image = self.read_image(image_path)
@@ -64,9 +60,7 @@ class BaseDataset(Dataset):
         return np.load(image_path)
 
     def transform(self, image):
-        transform_func = {
-            'normalize': self.normalize
-        }
+        transform_func = {"normalize": self.normalize}
 
         if self.transforms:
             for transform in self.transforms:
@@ -108,25 +102,24 @@ class BaseDataset(Dataset):
 
         return torch.from_numpy(resized) if image_is_tensor else resized
 
-    @staticmethod
-    def visualize(image, mask, default_depth=110):
-        if image.shape != mask.shape:
-            raise ValueError("Image and mask must have the same shape.")
-
-        def display_layer(layer):
-            plt.figure(figsize=(8, 8))
-            plt.imshow(image[layer], cmap='gray')
-            plt.imshow(mask[layer], cmap='jet', alpha=0.5)
-            plt.title(f"Layer {layer}")
-            plt.axis('off')
-            plt.show()
-
-        # Create a slider for selecting the layer
-        interact(display_layer, layer=IntSlider(min=0, max=image.shape[0] - 1, step=1, value=default_depth))
 
 class RegionalDataset(BaseDataset):
-    def __init__(self, image_dir, mask_dir, annotation_file, image_suffix=".npy", transforms=None, target_size=[100, 50, 50]):
-        super().__init__(image_dir, mask_dir, annotation_file, image_suffix=".npy", transforms=transforms)
+    def __init__(
+        self,
+        image_dir,
+        mask_dir,
+        annotation_file,
+        image_suffix=".npy",
+        transforms=None,
+        target_size=[100, 50, 50],
+    ):
+        super().__init__(
+            image_dir,
+            mask_dir,
+            annotation_file,
+            image_suffix=".npy",
+            transforms=transforms,
+        )
 
         self.target_size = target_size
 
@@ -148,7 +141,9 @@ class RegionalDataset(BaseDataset):
 
         # Final resize
         cropped_image = self.resize(cropped_image)
-        cropped_mask = self.resize(cropped_mask, target_size=self.target_size , is_mask=True)
+        cropped_mask = self.resize(
+            cropped_mask, target_size=self.target_size, is_mask=True
+        )
 
         # To tensor
         cropped_image = torch.as_tensor(cropped_image).unsqueeze(0)
@@ -176,10 +171,10 @@ class RegionalDataset(BaseDataset):
 def crop_image_and_mask(image, mask, bbox):
     bbox = [int(x) for x in bbox]
     x, y, z, w, h, depth = bbox
-    cropped_image = image[z: z + depth, y: y + h, x: x + w]
+    cropped_image = image[z : z + depth, y : y + h, x : x + w]
 
     if mask.ndim == 3:
-        cropped_mask = mask[z: z + depth, y: y + h, x: x + w]
+        cropped_mask = mask[z : z + depth, y : y + h, x : x + w]
     else:
         raise ValueError("Mask must be 3D array")
 
@@ -192,19 +187,24 @@ def main():
         config = json.load(f)
 
     # Load params from config
-    all_dir = config['dataset']['all']
-    transforms = config['dataset']['transforms']
-    if config['dataset']['compressed']:
-        image_suffix = '.npz'
+    all_dir = config["dataset"]["all"]
+    transforms = config["dataset"]["transforms"]
+    if config["dataset"]["compressed"]:
+        image_suffix = ".npz"
     else:
-        image_suffix = '.npy'
+        image_suffix = ".npy"
 
-    dataset = RegionalDataset(image_dir=os.path.join(all_dir, "images"), mask_dir=os.path.join(all_dir, "masks"),
-                              annotation_file=all_dir + '.json', image_suffix=image_suffix, transforms=transforms)
+    dataset = RegionalDataset(
+        image_dir=os.path.join(all_dir, "images"),
+        mask_dir=os.path.join(all_dir, "masks"),
+        annotation_file=all_dir + ".json",
+        image_suffix=image_suffix,
+        transforms=transforms,
+    )
 
     first = dataset.__getitem__(0)
     print(first)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()
