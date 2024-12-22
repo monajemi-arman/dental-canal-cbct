@@ -6,9 +6,10 @@ from typing import List, Tuple, Union, Dict, Optional, Any
 import numpy as np
 import torch
 from lightning import Trainer
+from lightning.pytorch.tuner import Tuner
 from lightning.pytorch.callbacks import EarlyStopping
-from data import RegionalDataset
 # Local imports
+from data import RegionalDataset
 from model import LightningUNet
 
 # Path to config
@@ -69,6 +70,14 @@ def main():
         accelerator=config['train']['accelerator'],
         callbacks=[early_stop_callback]
     )
+
+    # Find the best learning rate
+    tuner = Tuner(trainer)
+    lr_finder = tuner.lr_find(model, train_loader)
+    suggested_lr = lr_finder.suggestion()
+    model.lr = suggested_lr
+    print(f"Set learning rate: {suggested_lr}")
+
 
     # Training start
     trainer.fit(model, train_loader, val_loader)
