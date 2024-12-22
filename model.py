@@ -24,7 +24,8 @@ class LightningUNet(LightningModule):
         x, y = batch
         y = y.long()
         y_hat = self.model(x)
-        loss = self.loss_fn(y_hat, y)
+        train_loss = self.loss_fn(y_hat, y)
+        self.log('train_loss', train_loss)
         return loss
 
     def validation_step(self, batch, batch_idx):
