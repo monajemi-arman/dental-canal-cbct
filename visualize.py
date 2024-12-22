@@ -2,7 +2,6 @@ import matplotlib.pyplot as plt
 from matplotlib.patches import Rectangle
 from matplotlib.widgets import Slider, CheckButtons
 
-# BUG: mask is not shown in visualize(image, mask, bboxes)
 
 def visualize(image=None, mask=None, bboxes=None, default_depth=110):
     if image is None and mask is None:
