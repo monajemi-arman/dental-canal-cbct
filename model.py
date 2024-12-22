@@ -16,6 +16,7 @@ class LightningUNet(LightningModule):
         super().__init__()
         self.model = UNet(**unet_params).to("cuda" if torch.cuda.is_available() else "cpu")
         self.loss_fn = DiceCELoss()
+        self.lr = 0.0001
 
     def forward(self, x):
         return self.model(x)
@@ -37,7 +38,7 @@ class LightningUNet(LightningModule):
         return val_loss
 
     def configure_optimizers(self):
-        return Adam(self.parameters(), lr=0.001)
+        return Adam(self.parameters(), lr=self.lr)
 
 
 def main():
