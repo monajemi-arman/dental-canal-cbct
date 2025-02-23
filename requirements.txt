@@ -1,5 +1,6 @@
-numpy~=2.1.1
-torch~=2.4.1
-lightning~=2.4.0
-monai~=1.4.0
-scipy~=1.14.1
+numpy
+torch
+lightning
+monai
+scipy
+nibabel
