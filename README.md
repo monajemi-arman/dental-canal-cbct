@@ -65,3 +65,8 @@ python predict.py <path to checkpoint>
 ```
 We're still gathering clinical data, this prediction is when only data of 9 patients were gathered.
 ![](demo/predict.png)
+
+* [WIP]  **Reconstruct 3D volumes**
+```bash
+python reconstruct_volumes.py -i all/images -m all/masks -a all.json -o dataset/nii
+```
