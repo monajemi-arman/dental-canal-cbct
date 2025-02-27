@@ -4,3 +4,6 @@ lightning
 monai
 scipy
 nibabel
+tensorboardX
+batchgenerators
+medpy

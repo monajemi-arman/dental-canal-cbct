@@ -31,7 +31,7 @@ def reconstruct_volumes(image_dir, mask_dir, annotation_file, output_root, train
 
     for key in image_keys:
         output_dir = os.path.join(output_root, key)
-        img_path = os.path.join(output_dir, f"{key}_flare.nii")
+        img_path = os.path.join(output_dir, f"{key}_flair.nii")
         mask_path = os.path.join(output_dir, f"{key}_seg.nii")
 
         if os.path.exists(img_path) and os.path.exists(mask_path):

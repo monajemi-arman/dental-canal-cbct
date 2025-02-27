@@ -68,5 +68,5 @@ We're still gathering clinical data, this prediction is when only data of 9 pati
 
 * [WIP]  **Reconstruct 3D volumes**
 ```bash
-python reconstruct_volumes.py -i all/images -m all/masks -a all.json -o dataset/nii
+python reconstruct_volumes.py -i all/images -m all/masks -a all.json -o all_nii
 ```
