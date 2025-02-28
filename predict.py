@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 import torch
 import torch.nn.functional as F
-from model import LightningUNet
+from model import LightningDualUNet
 import json
 import numpy as np
 from skimage.transform import resize
@@ -22,7 +22,7 @@ class UnetPredictor():
         checkpoint = config["predict"]["checkpoint"]["unet"]
 
         # Load model from checkpoint and set to evaluation mode
-        self.model = LightningUNet.load_from_checkpoint(checkpoint, **unet_params)
+        self.model = LightningDualUNet.load_from_checkpoint(checkpoint, **unet_params)
         self.model.eval()
 
     def predict(self, image, revert_size=False):
