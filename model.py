@@ -6,6 +6,7 @@ from monai.losses import DiceCELoss
 from lightning import LightningModule
 from monai.networks.nets import UNet
 from torch.optim import Adam
+from torch.optim.lr_scheduler import ReduceLROnPlateau
 
 config_json = 'config.json'
 
@@ -92,7 +93,15 @@ class LightningDualUNet(LightningModule):
         return avg_val_loss
 
     def configure_optimizers(self):
-        return Adam(self.parameters(), lr=self.lr)
+        optimizer = Adam(self.parameters(), lr=self.lr)
+        scheduler = ReduceLROnPlateau(optimizer, mode='min', factor=0.1, patience=5, verbose=True)
+        return {
+            "optimizer": optimizer,
+            "lr_scheduler": {
+                "scheduler": scheduler,
+                "monitor": "val_loss",
+            },
+        }
 
     def on_train_start(self):
         # Check GPU memory and enable CPU offloading if necessary
