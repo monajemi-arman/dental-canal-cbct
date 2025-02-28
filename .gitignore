@@ -14,6 +14,7 @@ val.json
 test.json
 lightning_logs/
 *.ckpt
+all_nii/
 
 # C extensions
 *.so
