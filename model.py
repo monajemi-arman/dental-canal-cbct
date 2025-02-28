@@ -18,32 +18,44 @@ class LightningDualUNet(LightningModule):
         self.loss_fn = DiceCELoss()
         self.consistency_weight = consistency_weight
         self.lr = 0.0001
+        self.use_cpu_offload = False  # Flag to enable CPU offloading if GPU memory is insufficient
 
     def forward(self, x):
-        y1 = self.model1(x)
-        y2 = self.model2(x)
-        return (y1 + y2) / 2
+        if self.use_cpu_offload:
+            x1 = x.to("cuda")
+            x2 = x.to("cpu")
+            y1 = self.model1(x1)
+            y2 = self.model2(x2).to("cuda")
+            return (y1 + y2) / 2
+        else:
+            y1 = self.model1(x)
+            y2 = self.model2(x)
+            return (y1 + y2) / 2
 
     def training_step(self, batch, batch_idx):
         x, y = batch
-        y_hat1 = self.model1(x)
-        y_hat2 = self.model2(x)
 
-        # Supervised loss (only for labeled data)
+        if self.use_cpu_offload:
+            x1 = x.to("cuda")
+            x2 = x.to("cpu")
+            y_hat1 = self.model1(x1)
+            y_hat2 = self.model2(x2).to("cuda")
+        else:
+            y_hat1 = self.model1(x)
+            y_hat2 = self.model2(x)
+
         if y is not None:
-            y = y.long()
+            y = y.long().to("cuda" if not self.use_cpu_offload else y_hat1.device)
             loss1 = self.loss_fn(y_hat1, y)
             loss2 = self.loss_fn(y_hat2, y)
             supervised_loss = loss1 + loss2
         else:
             supervised_loss = 0
 
-        # Consistency loss (for both labeled and unlabeled data)
         y_hat1_soft = torch.softmax(y_hat1, dim=1)
         y_hat2_soft = torch.softmax(y_hat2, dim=1)
         consistency_loss = F.mse_loss(y_hat1_soft, y_hat2_soft)
 
-        # Total loss
         total_loss = supervised_loss + self.consistency_weight * consistency_loss
 
         self.log_dict({
@@ -56,11 +68,17 @@ class LightningDualUNet(LightningModule):
 
     def validation_step(self, batch, batch_idx):
         x, y = batch
-        y = y.long()
 
-        y_hat1 = self.model1(x)
-        y_hat2 = self.model2(x)
+        if self.use_cpu_offload:
+            x1 = x.to("cuda")
+            x2 = x.to("cpu")
+            y_hat1 = self.model1(x1)
+            y_hat2 = self.model2(x2).to("cuda")
+        else:
+            y_hat1 = self.model1(x)
+            y_hat2 = self.model2(x)
 
+        y = y.long().to("cuda" if not self.use_cpu_offload else y_hat1.device)
         val_loss1 = self.loss_fn(y_hat1, y)
         val_loss2 = self.loss_fn(y_hat2, y)
         avg_val_loss = (val_loss1 + val_loss2) / 2
@@ -75,6 +93,21 @@ class LightningDualUNet(LightningModule):
 
     def configure_optimizers(self):
         return Adam(self.parameters(), lr=self.lr)
+
+    def on_train_start(self):
+        # Check GPU memory and enable CPU offloading if necessary
+        try:
+            # Test memory usage with a dummy tensor
+            dummy = torch.randn(2, 1, 64, 64, 64).to("cuda")
+            _ = self.model1(dummy)
+            _ = self.model2(dummy)
+        except RuntimeError as e:
+            if "CUDA out of memory" in str(e):
+                self.use_cpu_offload = True
+                self.model2 = self.model2.to("cpu")
+                print("GPU memory insufficient. Enabled CPU offloading for model2.")
+            else:
+                raise e
 
 
 def main():
