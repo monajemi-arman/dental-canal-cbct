@@ -10,7 +10,7 @@ from lightning.pytorch.tuner import Tuner
 from lightning.pytorch.callbacks import EarlyStopping
 # Local imports
 from data import RegionalDataset
-from model import LightningUNet
+from model import LightningDualUNet
 
 # Path to config
 config_json = "config.json"
@@ -61,7 +61,7 @@ def main():
 
     # Load model with custom config parameters
     unet_params = config['model']['unet']
-    model = LightningUNet(**unet_params)
+    model = LightningDualUNet(**unet_params)
 
     # Trainer
     trainer = Trainer(

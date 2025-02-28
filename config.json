@@ -23,7 +23,11 @@
     "transforms": [
       "normalize"
     ],
-    "crop_target_size": [100, 50, 50],
+    "crop_target_size": [
+      100,
+      50,
+      50
+    ],
     "dcm_directory_suffix": "_dcm",
     "dcm_file_pattern": "_(\\d+)\\.dcm$",
     "mask_suffix": ".nii",
@@ -52,7 +56,9 @@
         1,
         1,
         1
-      ]
-    }
+      ],
+      "num_res_units": 2
+    },
+    "consistency_weight": 0.1
   }
 }
