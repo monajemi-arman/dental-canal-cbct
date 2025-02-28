@@ -7,7 +7,7 @@
   "train": {
     "batch_size": 1,
     "max_epochs": 100,
-    "suggested_lr": null,
+    "suggested_lr": 0.0001,
     "accelerator": "gpu",
     "device": "cuda",
     "early_stop_callback": {
