@@ -71,12 +71,15 @@ def main():
         callbacks=[early_stop_callback]
     )
 
-    # Find the best learning rate
-    tuner = Tuner(trainer)
-    lr_finder = tuner.lr_find(model, train_loader)
-    suggested_lr = lr_finder.suggestion()
-    model.lr = suggested_lr
-    print(f"Set learning rate: {suggested_lr}")
+    # Find the best learning rate if necessary
+    suggested_lr = config['train']['suggested_lr']
+    if not suggested_lr:
+        tuner = Tuner(trainer)
+        lr_finder = tuner.lr_find(model, train_loader)
+        suggested_lr = lr_finder.suggestion()
+        print(f"Set learning rate: {suggested_lr}")
+    else:
+        model.lr = suggested_lr
 
 
     # Training start
