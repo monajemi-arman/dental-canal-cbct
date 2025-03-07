@@ -2,6 +2,7 @@
 import json
 import torch
 import torch.nn.functional as F
+import torch.nn as nn
 from monai.losses import DiceCELoss
 from lightning import LightningModule
 from monai.networks.nets import UNet
@@ -20,6 +21,10 @@ class LightningDualUNet(LightningModule):
         self.consistency_weight = consistency_weight
         self.lr = 0.0001
         self.use_cpu_offload = False  # Flag to enable CPU offloading if GPU memory is insufficient
+
+        # Initialize model weights
+        self.model1 = kaiming_normal_init_weight(self.model1)
+        self.model2 = xavier_normal_init_weight(self.model2)
 
     def forward(self, x):
         if self.use_cpu_offload:
@@ -45,18 +50,30 @@ class LightningDualUNet(LightningModule):
             y_hat1 = self.model1(x)
             y_hat2 = self.model2(x)
 
-        if y is not None:
-            y = y.long().to("cuda" if not self.use_cpu_offload else y_hat1.device)
-            loss1 = self.loss_fn(y_hat1, y)
-            loss2 = self.loss_fn(y_hat2, y)
-            supervised_loss = loss1 + loss2
-        else:
-            supervised_loss = 0
-
         y_hat1_soft = torch.softmax(y_hat1, dim=1)
         y_hat2_soft = torch.softmax(y_hat2, dim=1)
-        consistency_loss = F.mse_loss(y_hat1_soft, y_hat2_soft)
 
+        y = y.long().to("cuda" if not self.use_cpu_offload else y_hat1.device)
+
+        # Supervised loss (CE + Dice)
+        loss1 = 0.5 * (self.ce_loss(y_hat1, y.to(torch.float)) + self.dice_loss(y_hat1_soft, y.unsqueeze(1)))
+        loss2 = 0.5 * (self.ce_loss(y_hat2, y.to(torch.float)) + self.dice_loss(y_hat2_soft, y.unsqueeze(1)))
+        supervised_loss = loss1 + loss2
+
+        # Pseudo-supervision for consistency
+        pseudo_outputs1 = torch.argmax(y_hat1_soft.detach(), dim=1, keepdim=False)
+        pseudo_outputs2 = torch.argmax(y_hat2_soft.detach(), dim=1, keepdim=False)
+
+        pseudo_supervision1 = self.ce_loss(y_hat1, pseudo_outputs2)
+        pseudo_supervision2 = self.ce_loss(y_hat2, pseudo_outputs1)
+
+        # Consistency loss
+        consistency_loss = pseudo_supervision1 + pseudo_supervision2
+
+        # Dynamic consistency weight
+        self.consistency_weight = self.get_current_consistency_weight(self.current_epoch)
+
+        # Total loss
         total_loss = supervised_loss + self.consistency_weight * consistency_loss
 
         self.log_dict({
@@ -118,6 +135,21 @@ class LightningDualUNet(LightningModule):
             else:
                 raise e
 
+    def ce_loss(self, logits, labels):
+        return F.cross_entropy(logits, labels)
+
+    def dice_loss(self, pred, target):
+        smooth = 1.
+        pred = pred.contiguous()
+        target = target.contiguous()
+        intersection = (pred * target).sum(dim=2).sum(dim=2)
+        loss = (1 - (
+                (2. * intersection + smooth) / (pred.sum(dim=2).sum(dim=2) + target.sum(dim=2).sum(dim=2) + smooth)))
+        return loss.mean()
+
+    def get_current_consistency_weight(self, epoch):
+        return min(1.0, epoch / 100.0)
+
 
 def main():
     with open(config_json) as f:
@@ -130,6 +162,26 @@ def main():
         consistency_weight=consistency_weight,
         **unet_params
     )
+
+
+def kaiming_normal_init_weight(model):
+    for m in model.modules():
+        if isinstance(m, nn.Conv3d):
+            torch.nn.init.kaiming_normal_(m.weight)
+        elif isinstance(m, nn.BatchNorm3d):
+            m.weight.data.fill_(1)
+            m.bias.data.zero_()
+    return model
+
+
+def xavier_normal_init_weight(model):
+    for m in model.modules():
+        if isinstance(m, nn.Conv3d):
+            torch.nn.init.xavier_normal_(m.weight)
+        elif isinstance(m, nn.BatchNorm3d):
+            m.weight.data.fill_(1)
+            m.bias.data.zero_()
+    return model
 
 
 if __name__ == '__main__':
