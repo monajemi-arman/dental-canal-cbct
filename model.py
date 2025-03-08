@@ -53,8 +53,8 @@ class LightningDualUNet(LightningModule):
             y_hat1 = self.model1(x)
             y_hat2 = self.model2(x)
 
-        y_hat1_soft = torch.softmax(y_hat1, dim=1)
-        y_hat2_soft = torch.softmax(y_hat2, dim=1)
+        y_hat1_soft = torch.softmax(y_hat1, dim=-1)
+        y_hat2_soft = torch.softmax(y_hat2, dim=-1)
 
         y = y.long().to("cuda" if not self.use_cpu_offload else y_hat1.device)
 
