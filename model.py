@@ -1,6 +1,5 @@
 #!/usr/bin/env python
 import json
-
 import numpy as np
 import torch
 import torch.nn.functional as F
@@ -24,6 +23,7 @@ class LightningDualUNet(LightningModule):
         self.lr = learning_rate
         self.consistency_rampup = consistency_rampup
         self.use_cpu_offload = False  # Flag to enable CPU offloading if GPU memory is insufficient
+        self.unlabeled_count = 0
 
         # Initialize model weights
         self.model1 = kaiming_normal_init_weight(self.model1)
@@ -42,7 +42,7 @@ class LightningDualUNet(LightningModule):
             return (y1 + y2) / 2
 
     def training_step(self, batch, batch_idx):
-        x, y = batch
+        x, y = batch  # x: 3D grayscale patches, y: 3D masks
 
         if self.use_cpu_offload:
             x1 = x.to("cuda")
@@ -58,20 +58,39 @@ class LightningDualUNet(LightningModule):
 
         y = y.long().to("cuda" if not self.use_cpu_offload else y_hat1.device)
 
-        # Supervised loss (CE + Dice)
-        loss1 = 0.5 * (self.ce_loss(y_hat1, y.to(torch.float)) + self.dice_loss(y_hat1_soft, y.unsqueeze(1)))
-        loss2 = 0.5 * (self.ce_loss(y_hat2, y.to(torch.float)) + self.dice_loss(y_hat2_soft, y.unsqueeze(1)))
-        supervised_loss = loss1 + loss2
+        # Check if any item in the batch is unlabeled (all-black mask)
+        unlabeled_mask = (y.sum(dim=(1, 2, 3, 4)) == 0)  # Sum over all spatial and channel dimensions
+        labeled_mask = ~unlabeled_mask
 
-        # Pseudo-supervision for consistency
-        pseudo_outputs1 = torch.argmax(y_hat1_soft.detach(), dim=1, keepdim=False)
-        pseudo_outputs2 = torch.argmax(y_hat2_soft.detach(), dim=1, keepdim=False)
+        # Supervised loss (CE + Dice) only on labeled data
+        if labeled_mask.any():
+            y_labeled = y[labeled_mask]
+            y_hat1_labeled = y_hat1[labeled_mask]
+            y_hat2_labeled = y_hat2[labeled_mask]
+            y_hat1_soft_labeled = y_hat1_soft[labeled_mask]
+            y_hat2_soft_labeled = y_hat2_soft[labeled_mask]
 
-        pseudo_supervision1 = self.ce_loss(y_hat1, pseudo_outputs2)
-        pseudo_supervision2 = self.ce_loss(y_hat2, pseudo_outputs1)
+            loss1 = 0.5 * (self.ce_loss(y_hat1_labeled, y_labeled) + self.dice_loss(y_hat1_soft_labeled, y_labeled))
+            loss2 = 0.5 * (self.ce_loss(y_hat2_labeled, y_labeled) + self.dice_loss(y_hat2_soft_labeled, y_labeled))
+            supervised_loss = loss1 + loss2
+        else:
+            supervised_loss = torch.tensor(0.0, device=y_hat1.device)
 
-        # Consistency loss
-        consistency_loss = pseudo_supervision1 + pseudo_supervision2
+        # Pseudo-supervision for consistency only on unlabeled data
+        if unlabeled_mask.any():
+            self.unlabeled_count += 1
+
+            # Use argmax to get pseudo-labels from the other model
+            pseudo_outputs1 = torch.argmax(y_hat1_soft[unlabeled_mask].detach(), dim=1, keepdim=False)
+            pseudo_outputs2 = torch.argmax(y_hat2_soft[unlabeled_mask].detach(), dim=1, keepdim=False)
+
+            # Compute pseudo-supervised loss
+            pseudo_supervision1 = self.ce_loss(y_hat1[unlabeled_mask], pseudo_outputs2)
+            pseudo_supervision2 = self.ce_loss(y_hat2[unlabeled_mask], pseudo_outputs1)
+
+            consistency_loss = pseudo_supervision1 + pseudo_supervision2
+        else:
+            consistency_loss = torch.tensor(0.0, device=y_hat1.device)
 
         # Dynamic consistency weight
         self.consistency_weight = self.get_current_consistency_weight(self.current_epoch)
@@ -82,7 +101,8 @@ class LightningDualUNet(LightningModule):
         self.log_dict({
             'supervised_loss': supervised_loss,
             'consistency_loss': consistency_loss,
-            'total_train_loss': total_loss
+            'total_train_loss': total_loss,
+            'unlabeled_count': self.unlabeled_count
         }, prog_bar=True)
 
         return total_loss
@@ -124,6 +144,8 @@ class LightningDualUNet(LightningModule):
         }
 
     def on_train_start(self):
+        self.unlabeled_count = 0
+
         # Check GPU memory and enable CPU offloading if necessary
         try:
             # Test memory usage with a dummy tensor
@@ -139,15 +161,17 @@ class LightningDualUNet(LightningModule):
                 raise e
 
     def ce_loss(self, logits, labels):
+        logits = logits.float()
+        labels = labels.float()
         return F.cross_entropy(logits, labels)
 
     def dice_loss(self, pred, target):
         smooth = 1.
         pred = pred.contiguous()
         target = target.contiguous()
-        intersection = (pred * target).sum(dim=2).sum(dim=2)
+        intersection = (pred * target).sum(dim=(2, 3, 4))  # Sum over spatial dimensions
         loss = (1 - (
-                (2. * intersection + smooth) / (pred.sum(dim=2).sum(dim=2) + target.sum(dim=2).sum(dim=2) + smooth)))
+                (2. * intersection + smooth) / (pred.sum(dim=(2, 3, 4)) + target.sum(dim=(2, 3, 4)) + smooth)))
         return loss.mean()
 
     def get_current_consistency_weight(self, epoch):
