@@ -1,5 +1,7 @@
 #!/usr/bin/env python
 import json
+
+import numpy as np
 import torch
 import torch.nn.functional as F
 import torch.nn as nn
@@ -13,13 +15,14 @@ config_json = 'config.json'
 
 
 class LightningDualUNet(LightningModule):
-    def __init__(self, consistency_weight=0.1, **unet_params):
+    def __init__(self, consistency_weight=0.1, learning_rate=0.0001, consistency_rampup=200, **unet_params):
         super().__init__()
         self.model1 = UNet(**unet_params)
         self.model2 = UNet(**unet_params)
         self.loss_fn = DiceCELoss()
         self.consistency_weight = consistency_weight
-        self.lr = 0.0001
+        self.lr = learning_rate
+        self.consistency_rampup = consistency_rampup
         self.use_cpu_offload = False  # Flag to enable CPU offloading if GPU memory is insufficient
 
         # Initialize model weights
@@ -148,7 +151,7 @@ class LightningDualUNet(LightningModule):
         return loss.mean()
 
     def get_current_consistency_weight(self, epoch):
-        return min(1.0, epoch / 100.0)
+        return self.consistency_weight * sigmoid_rampup(epoch, self.consistency_rampup)
 
 
 def main():
@@ -182,6 +185,16 @@ def xavier_normal_init_weight(model):
             m.weight.data.fill_(1)
             m.bias.data.zero_()
     return model
+
+
+def sigmoid_rampup(current, rampup_length):
+    """Exponential rampup from https://arxiv.org/abs/1610.02242"""
+    if rampup_length == 0:
+        return 1.0
+    else:
+        current = np.clip(current, 0.0, rampup_length)
+        phase = 1.0 - current / rampup_length
+        return float(np.exp(-5.0 * phase * phase))
 
 
 if __name__ == '__main__':
