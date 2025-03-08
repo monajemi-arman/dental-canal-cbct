@@ -53,8 +53,8 @@ class LightningDualUNet(LightningModule):
             y_hat1 = self.model1(x)
             y_hat2 = self.model2(x)
 
-        y_hat1_soft = torch.softmax(y_hat1, dim=1)
-        y_hat2_soft = torch.softmax(y_hat2, dim=1)
+        y_hat1_soft = torch.softmax(y_hat1, dim=-1)
+        y_hat2_soft = torch.softmax(y_hat2, dim=-1)
 
         y = y.long().to("cuda" if not self.use_cpu_offload else y_hat1.device)
 
@@ -64,8 +64,8 @@ class LightningDualUNet(LightningModule):
         supervised_loss = loss1 + loss2
 
         # Pseudo-supervision for consistency
-        pseudo_outputs1 = torch.argmax(y_hat1_soft.detach(), dim=1, keepdim=False)
-        pseudo_outputs2 = torch.argmax(y_hat2_soft.detach(), dim=1, keepdim=False)
+        pseudo_outputs1 = torch.argmax(y_hat1_soft.detach(), dim=-1, keepdim=False)
+        pseudo_outputs2 = torch.argmax(y_hat2_soft.detach(), dim=-1, keepdim=False)
 
         pseudo_supervision1 = self.ce_loss(y_hat1, pseudo_outputs2)
         pseudo_supervision2 = self.ce_loss(y_hat2, pseudo_outputs1)
