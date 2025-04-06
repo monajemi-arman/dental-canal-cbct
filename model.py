@@ -23,6 +23,7 @@ class LightningDualUNet(LightningModule):
         self.lr = learning_rate
         self.consistency_rampup = consistency_rampup
         self.use_cpu_offload = False  # Flag to enable CPU offloading if GPU memory is insufficient
+        self.labeled_count = 0
         self.unlabeled_count = 0
 
         # Initialize model weights
@@ -64,6 +65,8 @@ class LightningDualUNet(LightningModule):
 
         # Supervised loss (CE + Dice) only on labeled data
         if labeled_mask.any():
+            self.labeled_count += 1
+
             y_labeled = y[labeled_mask]
             y_hat1_labeled = y_hat1[labeled_mask]
             y_hat2_labeled = y_hat2[labeled_mask]
@@ -102,6 +105,7 @@ class LightningDualUNet(LightningModule):
             'supervised_loss': supervised_loss,
             'consistency_loss': consistency_loss,
             'total_train_loss': total_loss,
+            'labeled_count': self.labeled_count,
             'unlabeled_count': self.unlabeled_count
         }, prog_bar=True)
 
@@ -134,7 +138,7 @@ class LightningDualUNet(LightningModule):
 
     def configure_optimizers(self):
         optimizer = Adam(self.parameters(), lr=self.lr)
-        scheduler = ReduceLROnPlateau(optimizer, mode='min', factor=0.1, patience=5, verbose=True)
+        scheduler = ReduceLROnPlateau(optimizer, mode='min', factor=0.1, patience=5)
         return {
             "optimizer": optimizer,
             "lr_scheduler": {
