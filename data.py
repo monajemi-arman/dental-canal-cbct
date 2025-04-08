@@ -5,6 +5,7 @@ import numpy as np
 import torch
 from scipy.ndimage import zoom
 from torch.utils.data import Dataset
+from cache import MemoryAwareLRUCache
 
 # Path to config file
 config_json = "config.json"
@@ -12,13 +13,16 @@ config_json = "config.json"
 
 class BaseDataset(Dataset):
     def __init__(
-        self, image_dir, mask_dir, annotation_file, image_suffix=".npy", transforms=None
+            self, image_dir, mask_dir, annotation_file, image_suffix=".npy", transforms=None
     ):
         self.images, self.annotations = self.load_annotations(annotation_file)
         self.image_dir = image_dir
         self.mask_dir = mask_dir
         self.image_suffix = image_suffix
         self.transforms = transforms
+
+        self._image_cache = MemoryAwareLRUCache(max_memory_fraction=0.25)
+        self._mask_cache = MemoryAwareLRUCache(max_memory_fraction=0.25)
 
     def __len__(self):
         return len(self.images)
@@ -31,24 +35,23 @@ class BaseDataset(Dataset):
         return self.read_item(item)
 
     def read_item(self, idx):
-        # index to key
         key = self.image_id_to_key(idx)
-        if key:
-            # Paths to image and mask
+
+        image = self._image_cache.get(key)
+        if image is None:
             image_path = os.path.join(self.image_dir, key + self.image_suffix)
-            mask_path = os.path.join(self.mask_dir, key + self.image_suffix)
-
-            # Read image and mask
             image = self.read_image(image_path)
-            mask = self.read_image(mask_path)
-
-            # Apply transforms if enabled
             image = self.transform(image)
+            self._image_cache.put(key, image)
 
-            # Bounding box from JSON
-            bbox = self.annotations[key]
+        mask = self._mask_cache.get(key)
+        if mask is None:
+            mask_path = os.path.join(self.mask_dir, key + self.image_suffix)
+            mask = self.read_image(mask_path)
+            self._mask_cache.put(key, mask)
 
-            return image, mask, bbox
+        bbox = self.annotations[key]
+        return image, mask, bbox
 
     def load_annotations(self, annotation_file):
         with open(annotation_file) as f:
@@ -105,13 +108,13 @@ class BaseDataset(Dataset):
 
 class RegionalDataset(BaseDataset):
     def __init__(
-        self,
-        image_dir,
-        mask_dir,
-        annotation_file,
-        image_suffix=".npy",
-        transforms=None,
-        target_size=[100, 50, 50],
+            self,
+            image_dir,
+            mask_dir,
+            annotation_file,
+            image_suffix=".npy",
+            transforms=None,
+            target_size=[100, 50, 50],
     ):
         super().__init__(
             image_dir,
@@ -171,10 +174,10 @@ class RegionalDataset(BaseDataset):
 def crop_image_and_mask(image, mask, bbox):
     bbox = [int(x) for x in bbox]
     x, y, z, w, h, depth = bbox
-    cropped_image = image[z : z + depth, y : y + h, x : x + w]
+    cropped_image = image[z: z + depth, y: y + h, x: x + w]
 
     if mask.ndim == 3:
-        cropped_mask = mask[z : z + depth, y : y + h, x : x + w]
+        cropped_mask = mask[z: z + depth, y: y + h, x: x + w]
     else:
         raise ValueError("Mask must be 3D array")
 
